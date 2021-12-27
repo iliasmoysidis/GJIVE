@@ -1,9 +1,11 @@
 library(pracma); library(Matrix); library(fields)
-library(expm); library(matrixcalc); library(r.jive)
+library(expm); library(matrixcalc)
 
 
 n = 10; p = c(4, 5); rho = 0.3
 rank_joint = 2 ; rank_indiv = c(2, 3)
+
+
 
 euc_dist = function(x){
   
@@ -11,11 +13,23 @@ euc_dist = function(x){
   abs(matrix((1:x)-1, nrow = x, ncol = x, byrow = TRUE)-((1:x)-1))
   
 }
+
+
+
+
+
 nor_dist = function(x){
   
   euc_dist(x)/(1+euc_dist(x))
   
 }
+
+
+
+
+
+
+
 tax_dist = function(x){
   # The taxicab distance is the maximum distance from the diagonal
   # d(i,j) = max(i,j) if i != j and 0 if i = j
@@ -34,16 +48,36 @@ tax_dist = function(x){
   
   return(M)
 }
+
+
+
+
+
+
+
 log_dist = function(x){
   
   log(1+euc_dist(x))
   
 }
+
+
+
+
+
+
+
 row_cov  = function(n, rho){
 
   rho^euc_dist(n)
   
 }
+
+
+
+
+
+
 col_cov  = function(p, rho){
   
   K = length(p)
@@ -70,6 +104,13 @@ col_cov  = function(p, rho){
   return(M)
 }
 
+
+
+
+
+
+
+
 conc_list    = function(A, B, C){
   
   K = length(A)
@@ -81,6 +122,14 @@ conc_list    = function(A, B, C){
   
   return(D)
 }
+
+
+
+
+
+
+
+
 obs_data_gen = function(Sigma, Delta, rank_joint, rank_indiv){
   
   n = dim(Sigma)[1]
@@ -156,11 +205,25 @@ obs_data_gen = function(Sigma, Delta, rank_joint, rank_indiv){
                 "Noise"    = E)
   return(result)
 }
+             
+             
+             
+             
+             
+             
 
 
 QR_norm = function(X, Q, R){
   sqrt(sum(diag(Q%*%X%*%R%*%t(X))))
 }
+             
+             
+             
+             
+             
+             
+             
+             
 GMD     = function(X, Q, R, r, maxiter = 100){
   
   n = dim(X)[1]
@@ -218,6 +281,14 @@ deconc  = function(X, p){
   return(Y)
   
 }
+                       
+                       
+                       
+                       
+                       
+                       
+                       
+                       
 GJIVE   = function(X, Q, R, r, s ,maxiter = 100){
   
   K = length(R)
@@ -279,20 +350,11 @@ GJIVE   = function(X, Q, R, r, s ,maxiter = 100){
 
 # Construct row and column covariance matrices
 
-# Sigma = row_cov(n, rho)
-# Delta = col_cov(p, rho)
-
-Sigma = diag(nrow = n)
-Delta = lapply(p, function(x) diag(nrow = x))
+Sigma = row_cov(n, rho)
+Delta = col_cov(p, rho)
 
 # To verify that these are indeed covariance matrices
 # sum(c(is.positive.definite(Sigma), sapply(Delta, is.positive.definite))) == length(p) + 1
-
-
-# image.plot(Sigma)
-# image.plot(Delta[[1]])
-# image.plot(Delta[[2]])
-# image.plot(Delta[[3]])
 
 
 
@@ -345,11 +407,6 @@ obs_data = obs_data_gen(Sigma, Delta, rank_joint, rank_indiv)
 
 X = obs_data$Obs_data
 
-# X_c = (diag(nrow = n)-rep(1,n)%*%t(rep(1,n))/n)%*%X
-# 
-# scal = mapply(function(x,y) QR_norm(x, Q, y), deconc(X_c, p), R)
-# X_cs = do.call(cbind, mapply(function(x,y) x/y, deconc(X_c, p), scal))
-
 
 # Test GMD function
 # temp_svd = svd(sqrtm(Q)%*%X%*%bdiag(lapply(R, sqrtm)))
@@ -365,28 +422,6 @@ X = obs_data$Obs_data
 # norm(U_gmd%*%D_gmd%*%t(V_gmd)-sqrtm(Sigma)%*%U_svd%*%D_svd%*%t(bdiag(lapply(Delta, sqrtm))%*%V_svd), "F")
 
 
-temp = GJIVE(X, Q, R, rank_joint, rank_indiv)
-
-temp2 = jive.iter(lapply(deconc(X, p), t), rankJ = rank_joint, rankA = rank_indiv, orthIndiv = F, maxiter = 100)
-
-U_hat_joint = temp$U_joint
-D_hat_joint = temp$D_joint
-V_hat_joint = temp$V_joint
-
-U_hat_indiv = temp$U_indiv
-D_hat_indiv = temp$D_indiv
-V_hat_indiv = temp$V_indiv
-
-
-U_joint = obs_data$U_joint
-D_joint = obs_data$D_joint
-V_joint = obs_data$V_joint
-
-U_indiv = obs_data$U_indiv
-D_indiv = obs_data$D_indiv
-V_indiv = obs_data$V_indiv
-
-J = U_joint%*%D_joint%*%t(V_joint)
 
 
 
