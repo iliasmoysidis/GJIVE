@@ -1,35 +1,17 @@
 library(pracma); library(Matrix); library(fields)
 library(expm); library(matrixcalc)
 
-
-n = 10; p = c(4, 5); rho = 0.3
-rank_joint = 2 ; rank_indiv = c(2, 3)
-
-
-
 euc_dist = function(x){
   
   # Each component of this matrix expresses its euclidian distance from the diagonal
   abs(matrix((1:x)-1, nrow = x, ncol = x, byrow = TRUE)-((1:x)-1))
   
 }
-
-
-
-
-
 nor_dist = function(x){
   
   euc_dist(x)/(1+euc_dist(x))
   
 }
-
-
-
-
-
-
-
 tax_dist = function(x){
   # The taxicab distance is the maximum distance from the diagonal
   # d(i,j) = max(i,j) if i != j and 0 if i = j
@@ -48,36 +30,16 @@ tax_dist = function(x){
   
   return(M)
 }
-
-
-
-
-
-
-
 log_dist = function(x){
   
   log(1+euc_dist(x))
   
 }
-
-
-
-
-
-
-
 row_cov  = function(n, rho){
-
+  
   rho^euc_dist(n)
   
 }
-
-
-
-
-
-
 col_cov  = function(p, rho){
   
   K = length(p)
@@ -104,13 +66,6 @@ col_cov  = function(p, rho){
   return(M)
 }
 
-
-
-
-
-
-
-
 conc_list    = function(A, B, C){
   
   K = length(A)
@@ -122,14 +77,6 @@ conc_list    = function(A, B, C){
   
   return(D)
 }
-
-
-
-
-
-
-
-
 obs_data_gen = function(Sigma, Delta, rank_joint, rank_indiv){
   
   n = dim(Sigma)[1]
@@ -149,7 +96,7 @@ obs_data_gen = function(Sigma, Delta, rank_joint, rank_indiv){
   U_joint = sqrt_Sigma%*%Base[ ,1:rank_joint]
   V_joint = bdiag(sqrt_Delta)%*%randortho(sum(p), type = "orthonormal")[ ,1:rank_joint]
   
-  eigenvals = sort(sample(1:20, size = rank_joint), decreasing = T)
+  eigenvals = sort(sample(200:250, size = rank_joint), decreasing = T)
   D_joint   = diag(eigenvals, nrow = rank_joint)
   
   
@@ -171,7 +118,7 @@ obs_data_gen = function(Sigma, Delta, rank_joint, rank_indiv){
     U_indiv[[k]] = sqrt_Sigma%*%Base[ ,a[k]:b[k]]
     V_indiv[[k]] = sqrt_Delta[[k]]%*%randortho(p[k], type = "orthonormal")[ ,1:rank_indiv[k]]
     
-    eigenvals    = sort(sample(1:20, size = rank_indiv[k]), decreasing = T)
+    eigenvals    = sort(sample(200:250, size = rank_indiv[k]), decreasing = T)
     D_indiv[[k]] = diag(eigenvals, nrow = rank_indiv[k])
     
   }
@@ -205,26 +152,12 @@ obs_data_gen = function(Sigma, Delta, rank_joint, rank_indiv){
                 "Noise"    = E)
   return(result)
 }
-             
-             
-             
-             
-             
-             
 
 
 QR_norm = function(X, Q, R){
   sqrt(sum(diag(Q%*%X%*%R%*%t(X))))
 }
-             
-             
-             
-             
-             
-             
-             
-             
-GMD     = function(X, Q, R, r, maxiter = 100){
+GMD     = function(X, Q, R, r, tolerance = 1e-05, maxiter = 1000){
   
   n = dim(X)[1]
   p = dim(X)[2]
@@ -243,7 +176,7 @@ GMD     = function(X, Q, R, r, maxiter = 100){
     u_0   = rnorm(n)
     v_0   = rnorm(p)
     
-    while (error>1e-03 & iter <= maxiter) {
+    while (error > tolerance & iter < maxiter) {
       
       x      = X_0%*%R%*%v_0
       x_norm = as.numeric(sqrt(t(x)%*%Q%*%x))
@@ -281,15 +214,7 @@ deconc  = function(X, p){
   return(Y)
   
 }
-                       
-                       
-                       
-                       
-                       
-                       
-                       
-                       
-GJIVE   = function(X, Q, R, r, s ,maxiter = 100){
+GJIVE   = function(X, Q, R, r, s,tolerance = 1e-05, maxiter = 100){
   
   K = length(R)
   n = dim(Q)[1]
@@ -300,30 +225,37 @@ GJIVE   = function(X, Q, R, r, s ,maxiter = 100){
   error = 1
   iter  = 0
   
+  H = list()
+  G = list()
+  W = list()
+  
   a = c()
   b = c()
   f = c()
-  while (error>1e-03 & iter<=maxiter) {
+  while (error > tolerance & iter < maxiter) {
     
-    temp = GMD(X-A_0, Q, bdiag(R), r)
-    U    = temp$u
-    D    = temp$d
-    V    = temp$v
+    fit = GMD(X-A_0, Q, bdiag(R), r)
+    U   = fit$u
+    D   = fit$d
+    V   = fit$v
     
     J = U%*%D%*%t(V)
     Y = deconc(X-J, p)
     P = diag(nrow = n)-U%*%t(U)%*%Q
     
-    H = list()
-    G = list()
-    W = list()
-    
     for (i in 1:K) {
-      temp   = GMD(P%*%Y[[i]], Q, R[[i]], s[i])
-      H[[i]] = temp$u
-      G[[i]] = temp$d
-      W[[i]] = temp$v
+      
+      P    = diag(nrow = n)-U%*%t(U)%*%Q
+      temp = P%*%Y[[i]]
+      
+      
+      fit    = GMD(temp, Q, R[[i]], s[i])
+      H[[i]] = fit$u
+      G[[i]] = fit$d
+      W[[i]] = fit$v
+      
     }
+    
     
     A = conc_list(H, G, W)
     
@@ -343,113 +275,3 @@ GJIVE   = function(X, Q, R, r, s ,maxiter = 100){
                 "QR error" = f)
   return(result)
 }
-
-
-
-
-
-# Construct row and column covariance matrices
-
-Sigma = row_cov(n, rho)
-Delta = col_cov(p, rho)
-
-# To verify that these are indeed covariance matrices
-# sum(c(is.positive.definite(Sigma), sapply(Delta, is.positive.definite))) == length(p) + 1
-
-
-
-# Get the respective precision matrices
-
-Q = solve(Sigma)
-R = lapply(Delta, solve)
-
-# To verify the following matrices should be close to identity
-# sum(zapsmall(Q%*%Sigma, 5) == diag(nrow = n)) == n^2
-# sum(zapsmall(bdiag(R)%*%bdiag(Delta), 5) == diag(nrow = sum(p))) == sum(p)^2
-
-
-
-
-# Generate joint and individual structure and the observed data
-
-obs_data = obs_data_gen(Sigma, Delta, rank_joint, rank_indiv)
-
-# U_joint = obs_data$U_joint
-# D_joint = obs_data$D_joint
-# V_joint = obs_data$V_joint
-# U_indiv = obs_data$U_indiv
-# D_indiv = obs_data$D_indiv
-# V_indiv = obs_data$V_indiv
-
-# To verify, these should be close to identity
-# sum(round(t(U_joint)%*%Q%*%U_joint, 5) == diag(nrow = rank_joint)) == rank_joint^2
-# sum(round(t(V_joint)%*%bdiag(R)%*%V_joint, 5) == diag(nrow = rank_joint)) == rank_joint^2
-# A = 0; B = 0
-# for(k in 1:K){
-#   A = A+(sum(round(t(U_indiv[[k]])%*%Q%*%U_indiv[[k]], 5) == diag(nrow = rank_indiv[k])) == rank_indiv[k]^2)
-#   B = B+(sum(round(t(V_indiv[[k]])%*%R[[k]]%*%V_indiv[[k]], 5) ==  diag(nrow = rank_indiv[k])) == rank_indiv[k]^2)
-# }
-# A == K && B == K
-
-# To verify, these should be close to zero
-# A = 0; B = 0
-# for(k in 1:K){
-#   A = A+(sum(round(t(U_joint)%*%Q%*%U_indiv[[k]], 5) == matrix(0, nrow = rank_joint, ncol = rank_indiv[k])) == rank_joint*rank_indiv[k])
-#   if(k != K){
-#     for(s in (k+1):K){
-#       B = B+(sum(round(t(U_indiv[[k]])%*%Q%*%U_indiv[[s]], 5) == matrix(0, nrow = rank_indiv[k], ncol = rank_indiv[s])) == rank_indiv[k]*rank_indiv[s])
-#     }
-#   }
-# }
-# A == K; B == K*(K-1)/2
-
-
-
-X = obs_data$Obs_data
-
-
-# Test GMD function
-# temp_svd = svd(sqrtm(Q)%*%X%*%bdiag(lapply(R, sqrtm)))
-# temp_gmd = GMD(X, Q, bdiag(R), sum(p))
-
-# This should be small
-# U_gmd = temp_gmd$u
-# D_gmd = temp_gmd$d
-# V_gmd = temp_gmd$v
-# U_svd = temp_svd$u
-# D_svd = diag(temp_svd$d)
-# V_svd = temp_svd$v
-# norm(U_gmd%*%D_gmd%*%t(V_gmd)-sqrtm(Sigma)%*%U_svd%*%D_svd%*%t(bdiag(lapply(Delta, sqrtm))%*%V_svd), "F")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
